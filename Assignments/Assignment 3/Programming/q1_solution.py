@@ -21,9 +21,10 @@ def log_likelihood_bernoulli(mu, target):
     batch_size = mu.size(0)
     mu = mu.view(batch_size, -1)
     target = target.view(batch_size, -1)
-    print(mu.shape)
+    # print(mu.shape)
     # log_l(ikelihood_bernoulli
-    return (target*torch.log(mu) + (1-target)*torch.log(1-mu)).mean(dim=1)
+    # return (target*torch.log(mu) + (1-target)*torch.log(1-mu)).mean(dim=1)
+    return
 
 
 def log_likelihood_normal(mu, logvar, z):
