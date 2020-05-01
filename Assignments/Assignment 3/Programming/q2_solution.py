@@ -21,7 +21,23 @@ def lp_reg(x, y, critic):
     :param critic: (Module) - torch module that you want to regularize.
     :return: (FloatTensor) - shape: (1,) - Lipschitz penalty
     """
-    pass
+    device = "cuda" if x.is_cuda else "cpu"
+    batch_size = x.shape[0]
+    other_dims = [1] * len(x.shape[1:])
+    t = torch.rand((batch_size, *other_dims)).to(device)
+    x_hat = t * x + (1 - t) * y
+    grad_x_hat = x_hat.clone().detach().requires_grad_(True)
+    f_x_hat = critic(grad_x_hat)
+    gradiant = torch.autograd.grad(
+        outputs=f_x_hat,
+        inputs=grad_x_hat,
+        grad_outputs=torch.ones(f_x_hat.size()).to(device),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
+
+    return torch.mean((torch.clamp(gradiant.norm(2, dim=1) - 1, 0)) ** 2)
 
 
 def vf_wasserstein_distance(x, y, critic):
@@ -38,7 +54,8 @@ def vf_wasserstein_distance(x, y, critic):
     :param critic: (Module) - torch module used to compute the Wasserstein distance
     :return: (FloatTensor) - shape: (1,) - Estimate of the Wasserstein distance
     """
-    pass
+    f_x, f_y = critic(x), critic(y)
+    return torch.mean(f_x) - torch.mean(f_y)
 
 
 def vf_squared_hellinger(x, y, critic):
@@ -53,14 +70,19 @@ def vf_squared_hellinger(x, y, critic):
     :param critic: (Module) - torch module used to compute the Squared Hellinger.
     :return: (FloatTensor) - shape: (1,) - Estimate of the Squared Hellinger
     """
-    pass
+
+    gf_y = 1 - torch.exp(-critic(y))
+    gf_x = 1 - torch.exp(-critic(x))
+    return torch.mean(gf_x) - torch.mean(gf_y / (torch.tensor([1.0]) - gf_y))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example of usage of the code provided for answering Q2.5 as well as recommended hyper parameters.
     model = q2_model.Critic(2)
     optim = torch.optim.SGD(model.parameters(), lr=1e-3)
     sampler1 = iter(q2_sampler.distribution1(0, 512))
     theta = 0
     sampler2 = iter(q2_sampler.distribution1(theta, 512))
-    lambda_reg_lp = 50 # Recommended hyper parameters for the lipschitz regularizer.
+    lambda_reg_lp = (
+        50  # Recommended hyper parameters for the lipschitz regularizer.
+    )

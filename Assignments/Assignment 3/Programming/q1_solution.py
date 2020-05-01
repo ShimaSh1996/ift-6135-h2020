@@ -49,6 +49,7 @@ def log_likelihood_normal(mu, logvar, z):
     return ll.sum(dim=1)
 
 
+
 def log_mean_exp(y):
     """ 
     COMPLETE ME. DONT MODIFY THE PARAMETERS OF THE FUNCTION. Otherwise, tests might fail.
@@ -63,12 +64,10 @@ def log_mean_exp(y):
     sample_size = y.size(1)
 
     # log_mean_exp
-    maximum_over_samples, _ = y.max(1)
-    # print(maximum_over_samples)
-    kinda_normalized = y - maximum_over_samples.unsqueeze(1)
-    # print(maximum_over_samples.unsqueeze(1))
-    kinda_normalized = kinda_normalized.type(torch.FloatTensor)
-    return maximum_over_samples + (kinda_normalized.exp().mean(dim=1)).log()
+    cmax, _ = y.max(dim=1)
+    log_mean = (y - cmax.unsqueeze(1)).exp().mean(dim=1).log()
+    result = log_mean + cmax
+    return result
 
 
 def kl_gaussian_gaussian_analytic(mu_q, logvar_q, mu_p, logvar_p):
@@ -91,7 +90,13 @@ def kl_gaussian_gaussian_analytic(mu_q, logvar_q, mu_p, logvar_p):
     logvar_p = logvar_p.view(batch_size, -1)
 
     # kld
-    return
+    kld = 0.5 * (
+        (logvar_q - logvar_p).exp()
+        + ((mu_q - mu_p) ** 2) / logvar_p.exp()
+        + (logvar_p - logvar_q)
+        - 1
+    )
+    return kld.sum(dim=1)
 
 
 def kl_gaussian_gaussian_mc(mu_q, logvar_q, mu_p, logvar_p, num_samples=1):
@@ -131,5 +136,13 @@ def kl_gaussian_gaussian_mc(mu_q, logvar_q, mu_p, logvar_p, num_samples=1):
         .expand(batch_size, num_samples, input_size)
     )
 
-    # kld
-    return
+    z = torch.normal(mean=mu_q, std=logvar_q.exp())
+    # z_q = (z - mu_q) / logvar_q.exp()
+    # z_p = (z - mu_p) / logvar_p.exp()
+    # kld = (logvar_p - logvar_q) + 0.5 * (z_p ** 2 - z_q ** 2)
+    # kld.mean(dim=1).sum(dim=1)
+    kld = (
+        log_likelihood_normal(mu_q, logvar_q, z)
+        - log_likelihood_normal(mu_p, logvar_p, z)
+    ) / num_samples
+    return kld
